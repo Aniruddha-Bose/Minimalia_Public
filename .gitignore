@@ -1,0 +1,11 @@
+settings.json
+__pycache__/
+*.pyc
+debug_*.txt
+browser_data/
+browser_cache/
+build/
+dist/
+*.spec
+installer_output/
+assets/ui/minimalia_appicon.ico

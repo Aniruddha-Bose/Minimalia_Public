@@ -1,0 +1,76 @@
+name: Build Linux AppImage
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb-xinerama0 libxcb-cursor0 libxkbcommon0 libgl1 libegl1 fuse
+
+      - name: Install Python dependencies
+        run: |
+          pip install PyQt6 PyQt6-WebEngine adblock pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed \
+            --name Minimalia \
+            --icon assets/ui/minimalia_appicon.png \
+            --add-data "assets:assets" \
+            main.py
+
+      - name: Download linuxdeploy
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+
+      - name: Create AppDir structure
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+          cp dist/Minimalia AppDir/usr/bin/
+          chmod +x AppDir/usr/bin/Minimalia
+
+          cp assets/ui/minimalia_logo.png AppDir/usr/share/icons/hicolor/256x256/apps/minimalia.png
+
+          cat > AppDir/usr/share/applications/minimalia.desktop << 'DESKTOP'
+          [Desktop Entry]
+          Name=Minimalia
+          Exec=Minimalia
+          Icon=minimalia
+          Type=Application
+          Categories=Network;WebBrowser;
+          Comment=A minimal, privacy-focused web browser
+          DESKTOP
+
+          cp AppDir/usr/share/applications/minimalia.desktop AppDir/
+          cp AppDir/usr/share/icons/hicolor/256x256/apps/minimalia.png AppDir/
+
+      - name: Build AppImage
+        run: |
+          ARCH=x86_64 ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+          mv Minimalia-*.AppImage Minimalia.AppImage
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: Minimalia-Linux-AppImage
+          path: Minimalia.AppImage

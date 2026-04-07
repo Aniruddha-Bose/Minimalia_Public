@@ -1,0 +1,56 @@
+name: Build macOS DMG
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: |
+          pip install PyQt6 PyQt6-WebEngine adblock pyinstaller Pillow
+
+      - name: Convert icon to icns
+        run: |
+          python -c "
+          from PIL import Image
+          img = Image.open('assets/ui/minimalia_appicon.png')
+          img.save('assets/ui/minimalia_appicon.icns')
+          "
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed \
+            --name Minimalia \
+            --icon assets/ui/minimalia_appicon.icns \
+            --add-data "assets:assets" \
+            --osx-bundle-identifier com.anirudddhabose.minimalia \
+            main.py
+
+      - name: Create DMG
+        run: |
+          mkdir -p dmg_contents
+          cp -r dist/Minimalia.app dmg_contents/ 2>/dev/null || cp dist/Minimalia dmg_contents/
+          ln -s /Applications dmg_contents/Applications
+          hdiutil create -volname "Minimalia" \
+            -srcfolder dmg_contents \
+            -ov -format UDZO \
+            Minimalia.dmg
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Minimalia-macOS-DMG
+          path: Minimalia.dmg
